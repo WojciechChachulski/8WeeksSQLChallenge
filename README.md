@@ -6,5 +6,5 @@ Link do challenge'u: https://8weeksqlchallenge.com/case-study-1/
 **Technologie:** SQL, PostgreSQL.  
 
 **Funkcje:**  
-- Tworzenie zapytań SELECT, JOIN, GROUP BY, ORDER BY, COUNT, RANK.  
+- Tworzenie zapytań SELECT, JOIN, GROUP BY, ORDER BY, COUNT, RANK, WITH. 
 - Analiza danych sprzedażowych.  
