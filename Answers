@@ -1,0 +1,263 @@
+/* --------------------
+   Case Study Questions
+   --------------------*/
+
+-- 1. What is the total amount each customer spent at the restaurant?
+-- 2. How many days has each customer visited the restaurant?
+-- 3. What was the first item from the menu purchased by each customer?
+-- 4. What is the most purchased item on the menu and how many times was it purchased by all customers?
+-- 5. Which item was the most popular for each customer?
+-- 6. Which item was purchased first by the customer after they became a member?
+-- 7. Which item was purchased just before the customer became a member?
+-- 8. What is the total items and amount spent for each member before they became a member?
+-- 9.  If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
+-- 10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January?
+
+----------------------------------------------------------------------------ZAD 1
+WITH solution AS (
+    SELECT
+        sales.customer_id, 
+        sales.order_date, 
+        sales.product_id, 
+        menu.product_name, 
+        menu.price, 
+        members.join_date
+    FROM dannys_diner.sales
+    LEFT JOIN menu ON sales.product_id = menu.product_id
+    LEFT JOIN members ON sales.customer_id = members.customer_id
+),
+SELECT
+	
+    SUM(price) AS "Money Acquired"
+FROM --TUTAJ NAZWA BIBLIOTEKI W ZAPYTANIU--
+----------------------------------------------------------------------------ZAD 2
+),
+zad2 AS (
+	SELECT DISTINCT customer_id,order_date FROM solution)
+SELECT customer_id, COUNT(*) AS "Days Visited"
+FROM zad2
+GROUP BY customer_id
+)
+----------------------------------------------------------------------------ZAD 3/2/1
+WITH solution AS (
+    SELECT
+        sales.customer_id, 
+        sales.order_date, 
+        sales.product_id, 
+        menu.product_name, 
+        menu.price, 
+        members.join_date
+    FROM dannys_diner.sales
+    LEFT JOIN menu ON sales.product_id = menu.product_id
+    LEFT JOIN members ON sales.customer_id = members.customer_id
+),
+earliest_orders AS (
+    SELECT
+        customer_id,
+        MIN(order_date) AS earliest_order_date
+    FROM solution
+    GROUP BY customer_id
+),
+first_products AS (
+    SELECT
+        s.customer_id,
+        s.product_id,
+        s.order_date,
+        ROW_NUMBER() OVER (PARTITION BY s.customer_id, s.order_date ORDER BY s.product_id) AS rn
+    FROM solution s
+)
+
+SELECT
+    e.customer_id,
+    COUNT(DISTINCT s.order_date) AS "Days Visited",
+    SUM(s.price) AS "Total Income",
+    e.earliest_order_date,
+    fp.product_id AS first_product_id
+FROM earliest_orders e
+JOIN solution s ON e.customer_id = s.customer_id AND e.earliest_order_date = s.order_date
+JOIN first_products fp ON s.customer_id = fp.customer_id AND s.order_date = fp.order_date AND fp.rn = 1
+GROUP BY e.customer_id, e.earliest_order_date, fp.product_id;
+
+----------------------------------------------------------------------------ZAD 4
+
+WITH dane AS (
+
+  SELECT
+    sales.order_date,
+
+    sales.product_id,
+
+    sales.customer_id AS sales_customer_id,  -- Alias dla sales.customer_id
+
+    menu.product_name,
+
+    menu.price,
+
+    members.customer_id AS members_customer_id,  -- Alias dla members.customer_id
+
+    members.join_date
+
+  FROM dannys_diner.sales
+
+  LEFT JOIN menu ON sales.product_id = menu.product_id
+
+  LEFT JOIN members ON sales.customer_id = members.customer_id
+
+)
+
+SELECT
+
+    -- Pierwsze zapytanie: Najczęściej zamawiany produkt
+
+    (SELECT dane.product_id
+
+     FROM dane
+
+     GROUP BY dane.product_id
+
+     ORDER BY COUNT(*) DESC
+
+     LIMIT 1) AS "Most ordered",
+
+    
+
+    -- Drugie zapytanie: Suma cen wszystkich zamówionych produktów
+
+    (SELECT SUM(price)
+
+     FROM dane) AS total_price;
+
+-- do optymalizacji, za dużo uzyć select będzie w ostatnim zapytaniu
+
+----------------------------------------------------------------------------ZAD 5
+
+WITH dane AS (
+  SELECT
+	sales.customer_id, 
+    sales.product_id, 
+    menu.product_name
+    FROM dannys_diner.sales
+    LEFT JOIN menu ON sales.product_id=menu.product_id
+	ORDER BY sales.customer_id
+)
+SELECT 
+	dane.customer_id,
+    dane.product_id,
+    dane.product_name,
+    COUNT(*) AS "Most ordered"
+    FROM dane
+    GROUP BY dane.customer_id, dane.product_id, dane.product_name
+    ORDER BY "Most ordered" DESC;
+----------------------------------------------------------------------------ZAD 6
+
+WITH orders AS (
+    SELECT
+        sales.customer_id, 
+        sales.order_date, 
+        sales.product_id,
+        members.join_date,
+        menu.product_name,
+        DENSE_RANK() OVER(PARTITION BY sales.customer_id ORDER BY sales.order_date) AS rn --kiedy używasz DENSE to nie używaj group by
+    FROM 
+        dannys_diner.sales
+    JOIN 
+        members ON sales.customer_id = members.customer_id
+    JOIN 
+        menu ON sales.product_id = menu.product_id
+        WHERE sales.order_date >= members.join_date
+)
+SELECT customer_id, product_name
+FROM orders
+WHERE rn=1;
+----------------------------------------------------------------------------ZAD 7
+
+WITH orders AS (
+    SELECT
+        sales.customer_id, 
+        sales.order_date, 
+        sales.product_id,
+        members.join_date,
+        menu.product_name,
+        DENSE_RANK() OVER(PARTITION BY sales.customer_id ORDER BY sales.order_date) AS rn --kiedy używasz DENSE to nie używaj group by
+    FROM 
+        dannys_diner.sales
+    JOIN 
+        members ON sales.customer_id = members.customer_id
+    JOIN 
+        menu ON sales.product_id = menu.product_id
+        WHERE sales.order_date < members.join_date --tutaj jest różnica od poprzedniego zapytania, po prostu trzeba zmienić nierówność przy datach
+)
+SELECT customer_id, product_name
+FROM orders
+WHERE rn=1;
+----------------------------------------------------------------------------ZAD 8
+
+WITH data AS (
+    SELECT
+        sales.customer_id, 
+        sales.order_date, 
+        sales.product_id,
+        members.join_date,
+        menu.price
+    FROM dannys_diner.sales
+    JOIN members ON sales.customer_id = members.customer_id
+    JOIN menu ON sales.product_id = menu.product_id
+    WHERE sales.order_date < members.join_date
+)
+SELECT 
+    data.customer_id,
+    SUM(data.price) AS "Total Amount Spent"
+FROM data
+GROUP BY data.customer_id
+
+----------------------------------------------------------------------------ZAD 9
+
+WITH data AS (
+    SELECT
+          sales.customer_id, 
+          sales.order_date, 
+          sales.product_id,
+          menu.price,
+          menu.product_name
+  		  
+      FROM dannys_diner.sales
+      JOIN menu ON sales.product_id = menu.product_id
+  ),
+points_data AS (
+SELECT 
+    data.customer_id,
+  	data.product_name,
+    SUM(data.price) AS "Total Amount Spent"
+FROM data
+GROUP BY data.customer_id, data.product_name
+),
+final_points AS (
+SELECT 
+    points_data.customer_id AS "Customer",
+    CASE
+    	WHEN points_data.product_name='sushi' THEN "Total Amount Spent" * 20
+        ELSE points_data."Total Amount Spent" * 10
+    END AS "Total Points"
+FROM points_data
+GROUP BY points_data.customer_id, points_data."Total Amount Spent", points_data.product_name
+)
+SELECT
+	"Customer",
+    SUM("Total Points") AS "Points"
+FROM final_points
+GROUP BY "Customer"
+ORDER BY "Customer" ASC
+
+----------------------------------------------------------------------------ZAD 10
+
+
+SELECT sales.customer_id, menu.product_name, menu.price, order_date, join_date
+CASE
+    WHEN s.order_date BETWEEN mb.join_date AND DATEADD(day, 7, members.join_date) THEN menu.price * 20
+    WHEN menu.product_name = 'sushi' THEN menu.price *20
+    ELSE menu.price * 10
+    END AS points
+FROM menu
+JOIN sales ON sales.product_id=menu.product_id
+JOIN members ON sales.customer_id=members.customer_id
+WHERE order_date < '2021-02-01'
